@@ -50,6 +50,7 @@ dev = [
 ]
 
 [project.scripts]
+bean = "beancount.cli.main:main"
 bean-check = "beancount.scripts.check:main"
 bean-doctor = "beancount.scripts.doctor:main"
 bean-example = "beancount.scripts.example:main"
