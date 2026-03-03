@@ -94,10 +94,13 @@ class NaturalLanguageQuery:
 
             return {"answer": json.dumps(result)}
         except json.JSONDecodeError:
-            # LLM returned plain text; use it as-is.
-            text = self.provider.complete(prompt, system=_SYSTEM_PROMPT)
-            return {"answer": text}
-        except Exception as exc:
+            # LLM returned plain text; try a plain completion.
+            try:
+                text = self.provider.complete(prompt, system=_SYSTEM_PROMPT)
+                return {"answer": text}
+            except (ValueError, ConnectionError, TimeoutError, OSError) as exc:
+                return {"answer": f"Error processing query: {exc}"}
+        except (ValueError, ConnectionError, TimeoutError, OSError) as exc:
             return {"answer": f"Error processing query: {exc}"}
 
     def _build_context(
@@ -153,13 +156,19 @@ class NaturalLanguageQuery:
         date_from = query.get("date_from")
         date_to = query.get("date_to")
 
-        # Parse dates.
-        from_date = (
-            datetime.date.fromisoformat(date_from) if date_from else None
-        )
-        to_date = (
-            datetime.date.fromisoformat(date_to) if date_to else None
-        )
+        # Parse dates (may come from LLM output, so handle errors).
+        from_date = None
+        to_date = None
+        if date_from:
+            try:
+                from_date = datetime.date.fromisoformat(date_from)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                to_date = datetime.date.fromisoformat(date_to)
+            except ValueError:
+                pass
 
         # Filter entries.
         filtered = list(data.filter_txns(entries))

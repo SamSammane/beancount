@@ -76,7 +76,9 @@ class OpenAIProvider(LLMProvider):
             model=self.model,
             messages=messages,
         )
-        return response.choices[0].message.content
+        if not response.choices:
+            raise ValueError("OpenAI returned empty choices in response")
+        return response.choices[0].message.content or ""
 
     def complete_json(self, prompt: str, system: str | None = None) -> dict:
         text = self.complete(prompt, system)
@@ -118,7 +120,9 @@ class AnthropicProvider(LLMProvider):
         if system:
             kwargs["system"] = system
         message = client.messages.create(**kwargs)
-        return message.content[0].text
+        if not message.content:
+            raise ValueError("Anthropic returned empty content in response")
+        return message.content[0].text or ""
 
     def complete_json(self, prompt: str, system: str | None = None) -> dict:
         text = self.complete(prompt, system)
@@ -151,6 +155,10 @@ class OllamaProvider(LLMProvider):
         )
         with urllib.request.urlopen(req) as resp:
             result = json.loads(resp.read().decode("utf-8"))
+        if "response" not in result:
+            raise ValueError(
+                f"Ollama returned unexpected response format: {list(result.keys())}"
+            )
         return result["response"]
 
     def complete_json(self, prompt: str, system: str | None = None) -> dict:

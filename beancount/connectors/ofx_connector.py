@@ -150,7 +150,7 @@ class OFXConnector(BaseConnector):
         # Parse amount.
         try:
             amount_num = D(trnamt.strip())
-        except Exception:
+        except (ArithmeticError, ValueError):
             return None
 
         # Determine payee and narration.

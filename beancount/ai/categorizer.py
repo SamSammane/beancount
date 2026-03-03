@@ -53,7 +53,6 @@ class Categorizer:
           entries: A list of existing ledger directives.
         """
         payee_accounts: dict[str, Counter] = {}
-        narration_words: dict[str, Counter] = {}
 
         for entry in data.filter_txns(entries):
             if not entry.postings or len(entry.postings) < 2:
@@ -80,19 +79,13 @@ class Categorizer:
                     payee_accounts[entry.payee] = Counter()
                 payee_accounts[entry.payee][account] += 1
 
-            # Track narration word -> account mappings.
-            if entry.narration:
-                for word in entry.narration.lower().split():
-                    if len(word) > 3:
-                        if word not in narration_words:
-                            narration_words[word] = Counter()
-                        narration_words[word][account] += 1
-
         # Store the most common account for each payee.
         self._account_patterns = {}
         for payee, counter in payee_accounts.items():
             most_common = counter.most_common(3)
-            self._account_patterns[payee] = [acc for acc, _ in most_common]
+            accounts = [acc for acc, _ in most_common]
+            if accounts:
+                self._account_patterns[payee] = accounts
 
     def categorize(
         self,
@@ -158,11 +151,17 @@ class Categorizer:
             if "reasoning" not in result:
                 result["reasoning"] = "LLM categorization"
             return result
-        except (json.JSONDecodeError, Exception) as exc:
+        except json.JSONDecodeError as exc:
             return {
                 "account": "Expenses:Uncategorized",
                 "confidence": 0.0,
-                "reasoning": f"Categorization failed: {exc}",
+                "reasoning": f"Failed to parse LLM response as JSON: {exc}",
+            }
+        except (ValueError, ConnectionError, TimeoutError, OSError) as exc:
+            return {
+                "account": "Expenses:Uncategorized",
+                "confidence": 0.0,
+                "reasoning": f"LLM request failed: {exc}",
             }
 
     def categorize_batch(

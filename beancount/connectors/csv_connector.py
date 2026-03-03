@@ -11,11 +11,14 @@ __license__ = "GNU GPLv2"
 
 import csv
 import datetime
+import logging
 import re
 from decimal import Decimal
 from decimal import InvalidOperation
 from os import path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from beancount.connectors.base import BaseConnector
 from beancount.core import data
@@ -92,7 +95,8 @@ class CSVConnector(BaseConnector):
                 entry = self._row_to_transaction(row, col_map, filepath, row_num)
                 if entry is not None:
                     entries.append(entry)
-            except (ValueError, KeyError, InvalidOperation):
+            except (ValueError, KeyError, InvalidOperation) as exc:
+                log.debug("Skipping CSV row %d: %s", row_num, exc)
                 continue
 
         entries.sort(key=data.entry_sortkey)

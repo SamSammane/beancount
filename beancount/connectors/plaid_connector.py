@@ -166,10 +166,10 @@ class PlaidConnector(BaseConnector):
 
         # Fetch transactions with pagination.
         all_transactions: list[dict] = []
-        total_transactions = None
         offset = 0
+        max_pages = 100  # Safety limit to prevent infinite loops.
 
-        while True:
+        for _ in range(max_pages):
             request = TransactionsGetRequest(
                 access_token=self.access_token,
                 start_date=start_date,
@@ -185,11 +185,10 @@ class PlaidConnector(BaseConnector):
             txns = response_dict.get("transactions", [])
             all_transactions.extend(txns)
 
-            if total_transactions is None:
-                total_transactions = response_dict.get("total_transactions", 0)
-
+            total_transactions = response_dict.get("total_transactions", 0) or 0
             offset += len(txns)
-            if offset >= total_transactions:
+
+            if not txns or offset >= total_transactions:
                 break
 
         # Also extract accounts for mapping.

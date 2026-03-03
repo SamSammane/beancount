@@ -266,7 +266,7 @@ class QIFConnector(BaseConnector):
             # Capitalize first letter, replace invalid chars.
             cleaned = re.sub(r"[^A-Za-z0-9-]", "", part.strip().replace(" ", "-"))
             if cleaned:
-                cleaned = cleaned[0].upper() + cleaned[1:]
+                cleaned = cleaned[0].upper() + cleaned[1:] if len(cleaned) > 1 else cleaned.upper()
                 clean_parts.append(cleaned)
 
         if not clean_parts:
