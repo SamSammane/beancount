@@ -75,24 +75,29 @@ def create_default_registry(**kwargs: Any) -> ConnectorRegistry:
     Args:
       **kwargs: Configuration passed to connectors.
     Returns:
-      A ConnectorRegistry with CSV and OFX connectors registered.
+      A ConnectorRegistry with all built-in connectors registered.
     """
     from beancount.connectors.csv_connector import CSVConnector
+    from beancount.connectors.json_connector import JSONConnector
     from beancount.connectors.ofx_connector import OFXConnector
+    from beancount.connectors.plaid_connector import PlaidConnector
+    from beancount.connectors.qif_connector import QIFConnector
 
     registry = ConnectorRegistry()
 
-    csv_conn = CSVConnector()
-    ofx_conn = OFXConnector()
+    connectors = [
+        PlaidConnector(),  # Plaid first — most specific identify().
+        QIFConnector(),
+        OFXConnector(),
+        JSONConnector(),
+        CSVConnector(),  # CSV last — broadest identify().
+    ]
 
-    if "default_account" in kwargs:
-        csv_conn.default_account = kwargs["default_account"]
-        ofx_conn.default_account = kwargs["default_account"]
-    if "default_currency" in kwargs:
-        csv_conn.default_currency = kwargs["default_currency"]
-        ofx_conn.default_currency = kwargs["default_currency"]
-
-    registry.register(csv_conn)
-    registry.register(ofx_conn)
+    for conn in connectors:
+        if "default_account" in kwargs:
+            conn.default_account = kwargs["default_account"]
+        if "default_currency" in kwargs:
+            conn.default_currency = kwargs["default_currency"]
+        registry.register(conn)
 
     return registry

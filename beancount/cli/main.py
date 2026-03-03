@@ -336,6 +336,83 @@ def import_ofx(ofx_file, account, output):
     _output_entries(entries, output)
 
 
+@import_group.command(name="qif")
+@click.argument("qif_file", type=click.Path(exists=True))
+@click.option("--account", "-a", help="Target account name.")
+@click.option("--date-format", type=click.Choice(["us", "eu"]), default="us", help="Date format.")
+@click.option("--output", "-o", type=click.Path(), help="Output file.")
+def import_qif(qif_file, account, date_format, output):
+    """Import transactions from a QIF file (Quicken, MS Money)."""
+    from beancount.connectors.qif_connector import QIFConnector
+
+    connector = QIFConnector()
+    connector.date_format = date_format
+    if account:
+        connector.default_account = account
+
+    entries = connector.extract(qif_file)
+    _output_entries(entries, output)
+
+
+@import_group.command(name="json")
+@click.argument("json_file", type=click.Path(exists=True))
+@click.option("--account", "-a", help="Target account name.")
+@click.option("--key", "-k", help="Dot-separated path to transactions array.")
+@click.option("--output", "-o", type=click.Path(), help="Output file.")
+def import_json(json_file, account, key, output):
+    """Import transactions from a JSON file."""
+    from beancount.connectors.json_connector import JSONConnector
+
+    connector = JSONConnector()
+    if account:
+        connector.default_account = account
+    if key:
+        connector.transactions_key = key
+
+    entries = connector.extract(json_file)
+    _output_entries(entries, output)
+
+
+@import_group.command(name="plaid")
+@click.argument("plaid_file", type=click.Path(exists=True))
+@click.option("--account", "-a", help="Default target account name.")
+@click.option("--output", "-o", type=click.Path(), help="Output file.")
+def import_plaid(plaid_file, account, output):
+    """Import transactions from a Plaid API response JSON file."""
+    from beancount.connectors.plaid_connector import PlaidConnector
+
+    connector = PlaidConnector()
+    if account:
+        connector.default_account = account
+
+    entries = connector.extract(plaid_file)
+    _output_entries(entries, output)
+
+
+@import_group.command(name="auto")
+@click.argument("input_file", type=click.Path(exists=True))
+@click.option("--account", "-a", help="Target account name.")
+@click.option("--output", "-o", type=click.Path(), help="Output file.")
+def import_auto(input_file, account, output):
+    """Auto-detect file format and import transactions."""
+    from beancount.connectors.registry import create_default_registry
+
+    kwargs = {}
+    if account:
+        kwargs["default_account"] = account
+
+    registry = create_default_registry(**kwargs)
+    connector = registry.identify(input_file)
+
+    if connector is None:
+        click.echo(f"Error: Could not identify format of {input_file}", err=True)
+        raise SystemExit(1)
+
+    click.echo(f"Detected format: {type(connector).__name__}", err=True)
+    entries = connector.extract(input_file)
+    _output_entries(entries, output)
+
+
 def _output_entries(entries, output_path):
     """Write entries to output or stdout."""
     from beancount.parser import printer
