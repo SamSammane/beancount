@@ -216,5 +216,78 @@ class TestJSONConnector(unittest.TestCase):
         self.assertTrue(conn.negate_amounts)
 
 
+    def test_file_size_limit(self):
+        """Files exceeding the size limit should raise ValueError."""
+        data = [{"date": "2024-01-01", "amount": 10, "description": "Test"}]
+        tmpfile = self._write_json(data)
+        try:
+            conn = JSONConnector()
+            conn.max_file_size = 1  # 1 byte limit.
+            with self.assertRaises(ValueError) as ctx:
+                conn.extract(tmpfile)
+            self.assertIn("File too large", str(ctx.exception))
+        finally:
+            os.unlink(tmpfile)
+
+    def test_mixed_list_values(self):
+        """Auto-detect should handle dicts with list values containing mixed types."""
+        data = {
+            "metadata": "some info",
+            "items": [{"date": "2024-01-01", "amount": 10, "description": "Test"}, "not a dict", 42],
+        }
+        tmpfile = self._write_json(data)
+        try:
+            conn = JSONConnector()
+            conn.default_account = "Assets:Checking"
+            entries = conn.extract(tmpfile)
+            self.assertEqual(len(entries), 1)
+        finally:
+            os.unlink(tmpfile)
+
+    def test_record_missing_date(self):
+        """Records without a date field should be skipped."""
+        data = [{"amount": 10, "description": "No date"}]
+        tmpfile = self._write_json(data)
+        try:
+            conn = JSONConnector()
+            entries = conn.extract(tmpfile)
+            self.assertEqual(entries, [])
+        finally:
+            os.unlink(tmpfile)
+
+    def test_record_missing_amount(self):
+        """Records without an amount field should be skipped."""
+        data = [{"date": "2024-01-01", "description": "No amount"}]
+        tmpfile = self._write_json(data)
+        try:
+            conn = JSONConnector()
+            entries = conn.extract(tmpfile)
+            self.assertEqual(entries, [])
+        finally:
+            os.unlink(tmpfile)
+
+    def test_invalid_date_string(self):
+        """Records with unparseable dates should be skipped."""
+        data = [{"date": "not-a-date", "amount": 10, "description": "Bad date"}]
+        tmpfile = self._write_json(data)
+        try:
+            conn = JSONConnector()
+            entries = conn.extract(tmpfile)
+            self.assertEqual(entries, [])
+        finally:
+            os.unlink(tmpfile)
+
+    def test_invalid_amount_string(self):
+        """Records with unparseable amounts should be skipped."""
+        data = [{"date": "2024-01-01", "amount": "not-a-number", "description": "Bad amount"}]
+        tmpfile = self._write_json(data)
+        try:
+            conn = JSONConnector()
+            entries = conn.extract(tmpfile)
+            self.assertEqual(entries, [])
+        finally:
+            os.unlink(tmpfile)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -109,6 +109,7 @@ class PlaidConnector(BaseConnector):
 
     def _extract_from_file(self, filepath: str) -> data.Directives:
         """Parse transactions from a Plaid JSON response file."""
+        self._check_file_size(filepath)
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 raw = json.load(f)
@@ -244,7 +245,7 @@ class PlaidConnector(BaseConnector):
             amount_num = D(str(raw_amount))
             # Plaid convention: positive = debit/outflow, negate for beancount.
             amount_num = -amount_num
-        except Exception:
+        except (ArithmeticError, ValueError):
             return None
 
         # Currency.

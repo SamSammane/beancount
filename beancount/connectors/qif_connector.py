@@ -68,7 +68,10 @@ class QIFConnector(BaseConnector):
           filepath: Path to the QIF file.
         Returns:
           A list of Transaction directives.
+        Raises:
+          ValueError: If the file exceeds the size limit.
         """
+        self._check_file_size(filepath)
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()

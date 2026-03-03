@@ -238,5 +238,90 @@ class TestPlaidConnector(unittest.TestCase):
         self.assertEqual(conn.days_back, 60)
 
 
+    def test_file_size_limit(self):
+        """Files exceeding the size limit should raise ValueError."""
+        data = self._make_plaid_response()
+        tmpfile = self._write_json(data)
+        try:
+            conn = PlaidConnector()
+            conn.max_file_size = 1  # 1 byte limit.
+            with self.assertRaises(ValueError) as ctx:
+                conn.extract(tmpfile)
+            self.assertIn("File too large", str(ctx.exception))
+        finally:
+            os.unlink(tmpfile)
+
+    def test_transaction_missing_date(self):
+        """Transactions without a date should be skipped."""
+        data = {
+            "accounts": [],
+            "transactions": [
+                {"transaction_id": "txn_bad", "amount": 10.00, "name": "No Date"},
+            ],
+        }
+        tmpfile = self._write_json(data)
+        try:
+            conn = PlaidConnector()
+            entries = conn.extract(tmpfile)
+            self.assertEqual(entries, [])
+        finally:
+            os.unlink(tmpfile)
+
+    def test_transaction_invalid_amount(self):
+        """Transactions with invalid amounts should be skipped."""
+        data = {
+            "accounts": [],
+            "transactions": [
+                {"date": "2024-01-01", "amount": "not_a_number", "name": "Bad amount"},
+            ],
+        }
+        tmpfile = self._write_json(data)
+        try:
+            conn = PlaidConnector()
+            entries = conn.extract(tmpfile)
+            self.assertEqual(entries, [])
+        finally:
+            os.unlink(tmpfile)
+
+    def test_transaction_null_amount(self):
+        """Transactions with null amounts should be skipped."""
+        data = {
+            "accounts": [],
+            "transactions": [
+                {"date": "2024-01-01", "amount": None, "name": "Null amount"},
+            ],
+        }
+        tmpfile = self._write_json(data)
+        try:
+            conn = PlaidConnector()
+            entries = conn.extract(tmpfile)
+            self.assertEqual(entries, [])
+        finally:
+            os.unlink(tmpfile)
+
+    def test_category_string_not_list(self):
+        """Category as a string instead of list should be handled."""
+        data = {
+            "accounts": [],
+            "transactions": [
+                {
+                    "date": "2024-01-01",
+                    "amount": 10.00,
+                    "name": "Test",
+                    "category": "Food",
+                },
+            ],
+        }
+        tmpfile = self._write_json(data)
+        try:
+            conn = PlaidConnector()
+            conn.default_account = "Assets:Checking"
+            entries = conn.extract(tmpfile)
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0].meta.get("plaid_category"), "Food")
+        finally:
+            os.unlink(tmpfile)
+
+
 if __name__ == "__main__":
     unittest.main()

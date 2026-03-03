@@ -53,7 +53,10 @@ class OFXConnector(BaseConnector):
           filepath: Path to the OFX file.
         Returns:
           A list of Transaction directives.
+        Raises:
+          ValueError: If the file exceeds the size limit.
         """
+        self._check_file_size(filepath)
         content = self._read_ofx(filepath)
         if content is None:
             return []

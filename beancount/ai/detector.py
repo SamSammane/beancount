@@ -9,12 +9,15 @@ from __future__ import annotations
 __copyright__ = "Copyright (C) 2026  Beancount Contributors"
 __license__ = "GNU GPLv2"
 
+import logging
 import statistics
 from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import NamedTuple
+
+log = logging.getLogger(__name__)
 
 from beancount.core import data
 from beancount.core.number import D

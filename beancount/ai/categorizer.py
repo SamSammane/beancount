@@ -10,8 +10,11 @@ __copyright__ = "Copyright (C) 2026  Beancount Contributors"
 __license__ = "GNU GPLv2"
 
 import json
+import logging
 from collections import Counter
 from typing import TYPE_CHECKING
+
+log = logging.getLogger(__name__)
 
 from beancount.core import data
 
@@ -152,12 +155,14 @@ class Categorizer:
                 result["reasoning"] = "LLM categorization"
             return result
         except json.JSONDecodeError as exc:
+            log.warning("Failed to parse LLM categorization response: %s", exc)
             return {
                 "account": "Expenses:Uncategorized",
                 "confidence": 0.0,
                 "reasoning": f"Failed to parse LLM response as JSON: {exc}",
             }
         except (ValueError, ConnectionError, TimeoutError, OSError) as exc:
+            log.warning("LLM categorization request failed: %s", exc)
             return {
                 "account": "Expenses:Uncategorized",
                 "confidence": 0.0,

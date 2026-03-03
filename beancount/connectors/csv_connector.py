@@ -80,7 +80,10 @@ class CSVConnector(BaseConnector):
           filepath: Path to the CSV file.
         Returns:
           A list of Transaction directives.
+        Raises:
+          ValueError: If the file exceeds the size limit.
         """
+        self._check_file_size(filepath)
         rows = self._read_csv(filepath)
         if not rows:
             return []

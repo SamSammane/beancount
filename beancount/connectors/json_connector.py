@@ -91,7 +91,10 @@ class JSONConnector(BaseConnector):
           filepath: Path to the JSON file.
         Returns:
           A list of Transaction directives.
+        Raises:
+          ValueError: If the file exceeds the size limit.
         """
+        self._check_file_size(filepath)
         try:
             with open(filepath, "r", encoding=self.encoding) as f:
                 raw = json.load(f)
@@ -141,8 +144,8 @@ class JSONConnector(BaseConnector):
 
         # Try any list-valued key.
         for key, val in raw.items():
-            if isinstance(val, list) and val and isinstance(val[0], dict):
-                return val
+            if isinstance(val, list) and len(val) > 0 and isinstance(val[0], dict):
+                return [r for r in val if isinstance(r, dict)]
 
         return []
 
@@ -299,7 +302,7 @@ class JSONConnector(BaseConnector):
                 return None
             try:
                 return D(text)
-            except InvalidOperation:
+            except (InvalidOperation, ValueError):
                 return None
         return None
 

@@ -9,10 +9,13 @@ __copyright__ = "Copyright (C) 2026  Beancount Contributors"
 __license__ = "GNU GPLv2"
 
 import json
+import logging
 import os
 from abc import ABC
 from abc import abstractmethod
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 
 class LLMProvider(ABC):
@@ -77,6 +80,7 @@ class OpenAIProvider(LLMProvider):
             messages=messages,
         )
         if not response.choices:
+            log.warning("OpenAI returned empty choices for model %s", self.model)
             raise ValueError("OpenAI returned empty choices in response")
         return response.choices[0].message.content or ""
 
@@ -121,6 +125,7 @@ class AnthropicProvider(LLMProvider):
             kwargs["system"] = system
         message = client.messages.create(**kwargs)
         if not message.content:
+            log.warning("Anthropic returned empty content for model %s", self.model)
             raise ValueError("Anthropic returned empty content in response")
         return message.content[0].text or ""
 
@@ -156,6 +161,7 @@ class OllamaProvider(LLMProvider):
         with urllib.request.urlopen(req) as resp:
             result = json.loads(resp.read().decode("utf-8"))
         if "response" not in result:
+            log.warning("Ollama returned unexpected keys: %s", list(result.keys()))
             raise ValueError(
                 f"Ollama returned unexpected response format: {list(result.keys())}"
             )

@@ -10,9 +10,12 @@ from __future__ import annotations
 __copyright__ = "Copyright (C) 2026  Beancount Contributors"
 __license__ = "GNU GPLv2"
 
+import logging
 import sys
 
 import click
+
+log = logging.getLogger(__name__)
 
 from beancount.parser.version import VERSION
 
@@ -119,21 +122,28 @@ def bean(ctx, color):
 @click.option("--json", "json_output", is_flag=True, help="Output errors as JSON.")
 def check(filename, verbose, no_cache, cache_filename, auto, json_output):
     """Parse, check and validate a beancount ledger."""
-    from beancount.scripts.check import main as check_main
+    try:
+        from beancount.scripts.check import main as check_main
 
-    # Build argv for the existing check main.
-    args = [filename]
-    if verbose:
-        args.append("--verbose")
-    if no_cache:
-        args.append("--no-cache")
-    if cache_filename:
-        args.extend(["--cache-filename", cache_filename])
-    if auto:
-        args.append("--auto")
-    if json_output:
-        args.append("--json")
-    check_main(args, standalone_mode=False)
+        # Build argv for the existing check main.
+        args = [filename]
+        if verbose:
+            args.append("--verbose")
+        if no_cache:
+            args.append("--no-cache")
+        if cache_filename:
+            args.extend(["--cache-filename", cache_filename])
+        if auto:
+            args.append("--auto")
+        if json_output:
+            args.append("--json")
+        check_main(args, standalone_mode=False)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("check command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @bean.command(aliases=["fmt"])
@@ -143,25 +153,32 @@ def check(filename, verbose, no_cache, cache_filename, auto, json_output):
 @click.option("--in-place", "-i", is_flag=True, help="Edit files in place.")
 def format(filenames, output, currency_column, in_place):
     """Format and align a beancount ledger."""
-    from beancount.scripts.format import align_beancount
+    try:
+        from beancount.scripts.format import align_beancount
 
-    if not filenames:
-        click.echo("Error: At least one FILENAME is required.", err=True)
-        raise SystemExit(2)
+        if not filenames:
+            click.echo("Error: At least one FILENAME is required.", err=True)
+            raise SystemExit(2)
 
-    for filepath in filenames:
-        with open(filepath, encoding="utf-8") as f:
-            contents = f.read()
-        formatted = align_beancount(contents, currency_column=currency_column)
-        if in_place:
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write(formatted)
-            click.echo(f"Formatted: {filepath}")
-        elif output:
-            with open(output, "w", encoding="utf-8") as f:
-                f.write(formatted)
-        else:
-            click.echo(formatted, nl=False)
+        for filepath in filenames:
+            with open(filepath, encoding="utf-8") as f:
+                contents = f.read()
+            formatted = align_beancount(contents, currency_column=currency_column)
+            if in_place:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(formatted)
+                click.echo(f"Formatted: {filepath}")
+            elif output:
+                with open(output, "w", encoding="utf-8") as f:
+                    f.write(formatted)
+            else:
+                click.echo(formatted, nl=False)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("format command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @bean.command()
@@ -169,14 +186,21 @@ def format(filenames, output, currency_column, in_place):
 @click.option("--output", "-o", type=click.Path(), help="Output file.")
 def example(seed, output):
     """Generate an example beancount ledger."""
-    from beancount.scripts.example import main as example_main
+    try:
+        from beancount.scripts.example import main as example_main
 
-    args = []
-    if seed is not None:
-        args.extend(["--seed", str(seed)])
-    if output:
-        args.extend(["--output", output])
-    example_main(args, standalone_mode=False)
+        args = []
+        if seed is not None:
+            args.extend(["--seed", str(seed)])
+        if output:
+            args.extend(["--output", output])
+        example_main(args, standalone_mode=False)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("example command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @bean.command()
@@ -186,14 +210,21 @@ def example(seed, output):
 @click.pass_context
 def doctor(ctx, filename, subcommand, extra_args):
     """Debugging and diagnostic tools for a ledger."""
-    from beancount.scripts.doctor import main as doctor_main
+    try:
+        from beancount.scripts.doctor import main as doctor_main
 
-    args = []
-    if subcommand:
-        args.append(subcommand)
-    args.append(filename)
-    args.extend(extra_args)
-    doctor_main(args, standalone_mode=False)
+        args = []
+        if subcommand:
+            args.append(subcommand)
+        args.append(filename)
+        args.extend(extra_args)
+        doctor_main(args, standalone_mode=False)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("doctor command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 # -- AI commands --
@@ -210,23 +241,30 @@ def categorize(filename, payee, narration, provider):
     Learns from your existing ledger to suggest account categories
     for new transactions.
     """
-    from beancount import loader as bn_loader
-    from beancount.ai.categorizer import Categorizer
-    from beancount.ai.provider import get_provider
+    try:
+        from beancount import loader as bn_loader
+        from beancount.ai.categorizer import Categorizer
+        from beancount.ai.provider import get_provider
 
-    entries, errors, options_map = bn_loader.load_file(filename)
+        entries, errors, options_map = bn_loader.load_file(filename)
 
-    llm = get_provider(provider)
-    cat = Categorizer(llm)
-    cat.learn_from_entries(entries)
+        llm = get_provider(provider)
+        cat = Categorizer(llm)
+        cat.learn_from_entries(entries)
 
-    if payee or narration:
-        result = cat.categorize(payee=payee, narration=narration)
-        click.echo(f"Suggested account: {result['account']}")
-        click.echo(f"Confidence: {result['confidence']:.0%}")
-        click.echo(f"Reasoning: {result['reasoning']}")
-    else:
-        click.echo("Categorizer loaded and ready. Provide --payee or --narration to categorize.")
+        if payee or narration:
+            result = cat.categorize(payee=payee, narration=narration)
+            click.echo(f"Suggested account: {result['account']}")
+            click.echo(f"Confidence: {result['confidence']:.0%}")
+            click.echo(f"Reasoning: {result['reasoning']}")
+        else:
+            click.echo("Categorizer loaded and ready. Provide --payee or --narration to categorize.")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("categorize command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @bean.command(name="query-nl", aliases=["ask"])
@@ -238,16 +276,23 @@ def query_nl(filename, question, provider):
 
     Example: bean query-nl ledger.beancount "What were my top expenses last month?"
     """
-    from beancount import loader as bn_loader
-    from beancount.ai.nlquery import NaturalLanguageQuery
-    from beancount.ai.provider import get_provider
+    try:
+        from beancount import loader as bn_loader
+        from beancount.ai.nlquery import NaturalLanguageQuery
+        from beancount.ai.provider import get_provider
 
-    entries, errors, options_map = bn_loader.load_file(filename)
+        entries, errors, options_map = bn_loader.load_file(filename)
 
-    llm = get_provider(provider)
-    nlq = NaturalLanguageQuery(llm)
-    result = nlq.query(question, entries, options_map)
-    click.echo(result["answer"])
+        llm = get_provider(provider)
+        nlq = NaturalLanguageQuery(llm)
+        result = nlq.query(question, entries, options_map)
+        click.echo(result["answer"])
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("query-nl command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @bean.command(aliases=["anomalies"])
@@ -257,39 +302,46 @@ def query_nl(filename, question, provider):
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON.")
 def detect(filename, threshold, max_results, json_output):
     """Detect anomalous transactions in a ledger."""
-    import json
+    try:
+        import json
 
-    from beancount import loader as bn_loader
-    from beancount.ai.detector import AnomalyDetector
+        from beancount import loader as bn_loader
+        from beancount.ai.detector import AnomalyDetector
 
-    entries, errors, options_map = bn_loader.load_file(filename)
+        entries, errors, options_map = bn_loader.load_file(filename)
 
-    detector = AnomalyDetector(z_threshold=threshold)
-    anomalies = detector.detect(entries, max_results=max_results)
+        detector = AnomalyDetector(z_threshold=threshold)
+        anomalies = detector.detect(entries, max_results=max_results)
 
-    if json_output:
-        output = []
-        for a in anomalies:
-            output.append({
-                "date": str(a.entry.date),
-                "payee": a.entry.payee,
-                "narration": a.entry.narration,
-                "score": a.score,
-                "reason": a.reason,
-                "details": a.details,
-            })
-        click.echo(json.dumps(output, indent=2))
-    else:
-        if not anomalies:
-            click.echo("No anomalies detected.")
-            return
+        if json_output:
+            output = []
+            for a in anomalies:
+                output.append({
+                    "date": str(a.entry.date),
+                    "payee": a.entry.payee,
+                    "narration": a.entry.narration,
+                    "score": a.score,
+                    "reason": a.reason,
+                    "details": a.details,
+                })
+            click.echo(json.dumps(output, indent=2))
+        else:
+            if not anomalies:
+                click.echo("No anomalies detected.")
+                return
 
-        click.echo(f"Found {len(anomalies)} anomalies:\n")
-        for i, a in enumerate(anomalies, 1):
-            click.echo(f"{i}. [{a.score:.0%}] {a.entry.date} | {a.entry.payee or 'N/A'}")
-            click.echo(f"   {a.entry.narration or 'N/A'}")
-            click.echo(f"   Reason: {a.reason}")
-            click.echo()
+            click.echo(f"Found {len(anomalies)} anomalies:\n")
+            for i, a in enumerate(anomalies, 1):
+                click.echo(f"{i}. [{a.score:.0%}] {a.entry.date} | {a.entry.payee or 'N/A'}")
+                click.echo(f"   {a.entry.narration or 'N/A'}")
+                click.echo(f"   Reason: {a.reason}")
+                click.echo()
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("detect command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 # -- Connector commands --
@@ -308,16 +360,23 @@ def import_group():
 @click.option("--output", "-o", type=click.Path(), help="Output file.")
 def import_csv(csv_file, config, account, output):
     """Import transactions from a CSV file."""
-    from beancount.connectors.csv_connector import CSVConnector
+    try:
+        from beancount.connectors.csv_connector import CSVConnector
 
-    connector = CSVConnector()
-    if config:
-        connector.load_config(config)
-    if account:
-        connector.default_account = account
+        connector = CSVConnector()
+        if config:
+            connector.load_config(config)
+        if account:
+            connector.default_account = account
 
-    entries = connector.extract(csv_file)
-    _output_entries(entries, output)
+        entries = connector.extract(csv_file)
+        _output_entries(entries, output)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("import csv command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @import_group.command(name="ofx")
@@ -326,14 +385,21 @@ def import_csv(csv_file, config, account, output):
 @click.option("--output", "-o", type=click.Path(), help="Output file.")
 def import_ofx(ofx_file, account, output):
     """Import transactions from an OFX/QFX file."""
-    from beancount.connectors.ofx_connector import OFXConnector
+    try:
+        from beancount.connectors.ofx_connector import OFXConnector
 
-    connector = OFXConnector()
-    if account:
-        connector.default_account = account
+        connector = OFXConnector()
+        if account:
+            connector.default_account = account
 
-    entries = connector.extract(ofx_file)
-    _output_entries(entries, output)
+        entries = connector.extract(ofx_file)
+        _output_entries(entries, output)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("import ofx command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @import_group.command(name="qif")
@@ -343,15 +409,22 @@ def import_ofx(ofx_file, account, output):
 @click.option("--output", "-o", type=click.Path(), help="Output file.")
 def import_qif(qif_file, account, date_format, output):
     """Import transactions from a QIF file (Quicken, MS Money)."""
-    from beancount.connectors.qif_connector import QIFConnector
+    try:
+        from beancount.connectors.qif_connector import QIFConnector
 
-    connector = QIFConnector()
-    connector.date_format = date_format
-    if account:
-        connector.default_account = account
+        connector = QIFConnector()
+        connector.date_format = date_format
+        if account:
+            connector.default_account = account
 
-    entries = connector.extract(qif_file)
-    _output_entries(entries, output)
+        entries = connector.extract(qif_file)
+        _output_entries(entries, output)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("import qif command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @import_group.command(name="json")
@@ -361,16 +434,23 @@ def import_qif(qif_file, account, date_format, output):
 @click.option("--output", "-o", type=click.Path(), help="Output file.")
 def import_json(json_file, account, key, output):
     """Import transactions from a JSON file."""
-    from beancount.connectors.json_connector import JSONConnector
+    try:
+        from beancount.connectors.json_connector import JSONConnector
 
-    connector = JSONConnector()
-    if account:
-        connector.default_account = account
-    if key:
-        connector.transactions_key = key
+        connector = JSONConnector()
+        if account:
+            connector.default_account = account
+        if key:
+            connector.transactions_key = key
 
-    entries = connector.extract(json_file)
-    _output_entries(entries, output)
+        entries = connector.extract(json_file)
+        _output_entries(entries, output)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("import json command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @import_group.command(name="plaid")
@@ -379,14 +459,21 @@ def import_json(json_file, account, key, output):
 @click.option("--output", "-o", type=click.Path(), help="Output file.")
 def import_plaid(plaid_file, account, output):
     """Import transactions from a Plaid API response JSON file."""
-    from beancount.connectors.plaid_connector import PlaidConnector
+    try:
+        from beancount.connectors.plaid_connector import PlaidConnector
 
-    connector = PlaidConnector()
-    if account:
-        connector.default_account = account
+        connector = PlaidConnector()
+        if account:
+            connector.default_account = account
 
-    entries = connector.extract(plaid_file)
-    _output_entries(entries, output)
+        entries = connector.extract(plaid_file)
+        _output_entries(entries, output)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("import plaid command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(1)
 
 
 @import_group.command(name="auto")
@@ -395,22 +482,29 @@ def import_plaid(plaid_file, account, output):
 @click.option("--output", "-o", type=click.Path(), help="Output file.")
 def import_auto(input_file, account, output):
     """Auto-detect file format and import transactions."""
-    from beancount.connectors.registry import create_default_registry
+    try:
+        from beancount.connectors.registry import create_default_registry
 
-    kwargs = {}
-    if account:
-        kwargs["default_account"] = account
+        kwargs = {}
+        if account:
+            kwargs["default_account"] = account
 
-    registry = create_default_registry(**kwargs)
-    connector = registry.identify(input_file)
+        registry = create_default_registry(**kwargs)
+        connector = registry.identify(input_file)
 
-    if connector is None:
-        click.echo(f"Error: Could not identify format of {input_file}", err=True)
+        if connector is None:
+            click.echo(f"Error: Could not identify format of {input_file}", err=True)
+            raise SystemExit(1)
+
+        click.echo(f"Detected format: {type(connector).__name__}", err=True)
+        entries = connector.extract(input_file)
+        _output_entries(entries, output)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        log.debug("import auto command failed", exc_info=True)
+        click.echo(f"Error: {exc}", err=True)
         raise SystemExit(1)
-
-    click.echo(f"Detected format: {type(connector).__name__}", err=True)
-    entries = connector.extract(input_file)
-    _output_entries(entries, output)
 
 
 def _output_entries(entries, output_path):

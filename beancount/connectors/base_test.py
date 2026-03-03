@@ -99,5 +99,45 @@ class TestBaseConnector(unittest.TestCase):
         self.assertEqual(result, [])
 
 
+    def test_check_file_size_under_limit(self):
+        """Files under the limit should not raise."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".test", delete=False
+        ) as f:
+            f.write("small content")
+            tmpfile = f.name
+        try:
+            conn = ConcreteConnector()
+            conn._check_file_size(tmpfile)  # Should not raise.
+        finally:
+            os.unlink(tmpfile)
+
+    def test_check_file_size_over_limit(self):
+        """Files over the limit should raise ValueError."""
+        with tempfile.NamedTemporaryFile(
+            mode="wb", suffix=".test", delete=False
+        ) as f:
+            f.write(b"x" * 200)
+            tmpfile = f.name
+        try:
+            conn = ConcreteConnector()
+            conn.max_file_size = 100  # 100 bytes.
+            with self.assertRaises(ValueError) as ctx:
+                conn._check_file_size(tmpfile)
+            self.assertIn("File too large", str(ctx.exception))
+        finally:
+            os.unlink(tmpfile)
+
+    def test_check_file_size_missing_file(self):
+        """Missing files should not raise (let caller handle)."""
+        conn = ConcreteConnector()
+        conn._check_file_size("/nonexistent/file.test")  # Should not raise.
+
+    def test_max_file_size_default(self):
+        """Default max file size should be 100 MB."""
+        conn = ConcreteConnector()
+        self.assertEqual(conn.max_file_size, 100 * 1024 * 1024)
+
+
 if __name__ == "__main__":
     unittest.main()

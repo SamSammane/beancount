@@ -11,10 +11,13 @@ __license__ = "GNU GPLv2"
 
 import datetime
 import json
+import logging
 from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from beancount.core import data
 from beancount.core import getters
@@ -94,13 +97,16 @@ class NaturalLanguageQuery:
 
             return {"answer": json.dumps(result)}
         except json.JSONDecodeError:
+            log.debug("NL query JSON decode failed, falling back to plain completion")
             # LLM returned plain text; try a plain completion.
             try:
                 text = self.provider.complete(prompt, system=_SYSTEM_PROMPT)
                 return {"answer": text}
             except (ValueError, ConnectionError, TimeoutError, OSError) as exc:
+                log.warning("NL query plain completion fallback also failed: %s", exc)
                 return {"answer": f"Error processing query: {exc}"}
         except (ValueError, ConnectionError, TimeoutError, OSError) as exc:
+            log.warning("NL query failed: %s", exc)
             return {"answer": f"Error processing query: {exc}"}
 
     def _build_context(
